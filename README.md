@@ -1,26 +1,38 @@
 # MolBERT
-This repository contains the implementation of the MolBERT, a state-of-the-art representation learning method based on the modern language model BERT. 
+This repository contains the implementation of MolBERT, a state-of-the-art representation learning method based on the modern language model BERT.
 
-The details are described in *["Molecular representation learning with language models and domain-relevant auxiliary tasks"](https://arxiv.org/abs/2011.13230)*, presented at the Machine Learning for Molecules Workshop @ NeurIPS 2020. 
+The details are described in *["Molecular representation learning with language models and domain-relevant auxiliary tasks"](https://arxiv.org/abs/2011.13230)*, presented at the Machine Learning for Molecules Workshop @ NeurIPS 2020.
 
 Work done by Benedek Fabian, Thomas Edlich, Héléna Gaspar, Marwin Segler, Joshua Meyers, Marco Fiscato, Mohamed Ahmed
 
+> **Fork highlights**  
+> This fork modernizes the original BenevolentAI release by targeting Python 3.13 and aligning the core ML stack with the latest versions of PyTorch, PyTorch Lightning, RDKit and Transformers. If you depend on the legacy Python 3.7 workflow, please refer to an earlier tag of the upstream repository.
+
+Currently this is supported for generating vector representations only.
+
 ## Installation
-Create your conda environment first:
-```shell script
-conda create -y -q -n molbert -c rdkit rdkit=2019.03.1.0 python=3.7.3
+Create and activate a Python 3.13 environment (either with the built-in `venv`, [uv](https://docs.astral.sh/uv/), or your preferred manager):
+
+```shell
+uv sync
 ```
 
-Then install the package by running the following commands from the cloned directory:
-```shell script
-conda activate molbert
-pip install -e . 
+Install MolBERT and its runtime dependencies:
+
+```shell
+uv pip install -e .
+```
+
+If you plan to run the test suite or use type/lint tooling, install the optional development extras:
+
+```shell
+uv pip install -e ".[dev]"
 ```
 
 ## Run tests
-To verify your installation, execute the tests:
-```shell script
-python -m pytest . -p no:warnings
+To verify your installation, execute the tests (not ready yet):
+```shell
+uv run pytest -p no:warnings
 ```
 
 ## Load pretrained model

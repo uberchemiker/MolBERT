@@ -17,8 +17,7 @@ from transformers import (
     BertPreTrainedModel,
     BertModel,
 )
-from transformers.modeling_bert import BertEncoder, BertPooler
-from transformers.modeling_transfo_xl import PositionalEmbedding
+from transformers.models.bert.modeling_bert import BertEncoder, BertPooler
 
 from molbert.datasets.dataloading import MolbertDataLoader
 
@@ -28,16 +27,29 @@ logger = logging.getLogger(__name__)
 MolbertBatchType = Tuple[Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor]], torch.Tensor]
 
 
-class SuperPositionalEmbedding(PositionalEmbedding):
+class SuperPositionalEmbedding(nn.Module):
     """
-    Same as PositionalEmbedding in XLTransformer, BUT
-    has a different handling of the batch dimension that avoids cumbersome dimension shuffling
+    Drop-in sinusoidal positional embedding compatible with Transfo-XL's PositionalEmbedding,
+    but with simpler batch handling (no dimension shuffling).
     """
 
-    def forward(self, pos_seq, bsz=None):
+    def __init__(self, dim: int):
+        super().__init__()
+        # Compute inverse frequencies as in Transfo-XL
+        inv_freq = 1.0 / (10000 ** (torch.arange(0, dim, 2.0).float() / dim))
+        self.register_buffer("inv_freq", inv_freq)
+
+    def forward(self, pos_seq, bsz: int = None):
+        # Ensure floating dtype for the outer product
+        if not torch.is_floating_point(pos_seq):
+            pos_seq = pos_seq.to(dtype=self.inv_freq.dtype)
+        # [seq_len, dim/2]
         sinusoid_inp = torch.ger(pos_seq, self.inv_freq)
+        # [seq_len, dim]
         pos_emb = torch.cat([sinusoid_inp.sin(), sinusoid_inp.cos()], dim=-1)
+        # [1, seq_len, dim]
         pos_emb = pos_emb.unsqueeze(0)
+        # [bsz, seq_len, dim] if batch size is given
         if bsz is not None:
             pos_emb = pos_emb.expand(bsz, -1, -1)
         return pos_emb
@@ -60,7 +72,7 @@ class SuperPositionalBertEmbeddings(nn.Module):
         self.LayerNorm = nn.LayerNorm(config.hidden_size, eps=config.layer_norm_eps)
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
 
-    def forward(self, input_ids, token_type_ids=None, position_ids=None, inputs_embeds=None):
+    def forward(self, input_ids, token_type_ids=None, position_ids=None, inputs_embeds=None, past_key_values_length=None):
         # do word embedding first to determine its type (float or half)
         words_embeddings = self.word_embeddings(input_ids)
 
@@ -89,7 +101,7 @@ class SuperPositionalBertModel(BertModel):
     """
 
     def __init__(self, config):
-        super(BertModel, self).__init__(config)
+        super().__init__(config)
 
         self.embeddings = SuperPositionalBertEmbeddings(config)
         self.encoder = BertEncoder(config)
@@ -120,7 +132,7 @@ class FlexibleBertModel(BertPreTrainedModel):
 class MolbertModel(pl.LightningModule):
     def __init__(self, args: Namespace):
         super().__init__()
-        self.hparams = args
+        self.save_hyperparameters(args)
 
         self._datasets = None
 
